@@ -1,3 +1,9 @@
+```
+▐▛███▜▌    keys
+▝▜█████▛▘  v0.1.0
+  ▘▘ ▝▝
+```
+
 `keys` is a terminal UI for browsing local GPG and SSH keys and performing common key maintenance tasks.
 
 ## Usage

@@ -14,16 +14,24 @@ import (
 
 // Catppuccin Mocha subset — https://catppuccin.com/palette
 var (
-	mochaBase     = lipgloss.Color("#1e1e2e")
 	mochaText     = lipgloss.Color("#cdd6f4")
 	mochaOverlay0 = lipgloss.Color("#6c7086")
 	mochaMauve    = lipgloss.Color("#cba6f7")
 
-	appNameStyle    = lipgloss.NewStyle().Background(mochaMauve).Foreground(mochaBase).Bold(true).Padding(0, 1)
+	logoStyle       = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
+	titleStyle      = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
 	cursorStyle     = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
 	currentKeyStyle = lipgloss.NewStyle().Foreground(mochaText)
 	faintStyle      = lipgloss.NewStyle().Foreground(mochaOverlay0)
 )
+
+const logoArt = "▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
+
+func renderHeader(title string) string {
+	logo := logoStyle.Render(logoArt)
+	info := titleStyle.Render(title) + "\n" + faintStyle.Render("v"+version)
+	return lipgloss.JoinHorizontal(lipgloss.Top, logo, "  ", info)
+}
 
 type mode int
 
@@ -255,7 +263,7 @@ func (m model) View() tea.View {
 		title = "HELP"
 	}
 
-	s.WriteString(appNameStyle.Render(title) + "\n\n")
+	s.WriteString(renderHeader(title) + "\n\n")
 
 	if m.showHelp {
 		s.WriteString("tab - switch GPG/SSH\n")
