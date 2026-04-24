@@ -1,4 +1,24 @@
-keys is a terminal UI for browsing the local GPG keyring and performing common key maintenance tasks.
+`keys` is a terminal UI for browsing local GPG and SSH keys and performing common key maintenance tasks.
+
+## Usage
+
+Run `keys` to open the TUI. `keys --version` prints the version and exits.
+
+Key bindings:
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `tab`     | switch between GPG and SSH views  |
+| `↑` / `k` | move up                           |
+| `↓` / `j` | move down                         |
+| `e`       | edit expiry (GPG only)            |
+| `y`       | yank public key to clipboard (SSH only) |
+| `?`       | toggle help                       |
+| `q`, `esc`| quit                              |
+
+GPG keys are loaded via `libgpgme`.
+
+SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub` files are skipped).
 
 ## Install
 
