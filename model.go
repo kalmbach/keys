@@ -25,11 +25,11 @@ var (
 	faintStyle      = lipgloss.NewStyle().Foreground(mochaOverlay0)
 )
 
-const logoArt = "▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
+const logoArt = "\n ▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
 
 func renderHeader(title string) string {
 	logo := logoStyle.Render(logoArt)
-	info := titleStyle.Render(title) + "\n" + faintStyle.Render("v"+version)
+	info := "\n" + titleStyle.Render(title) + "\n" + faintStyle.Render("v"+version)
 	return lipgloss.JoinHorizontal(lipgloss.Top, logo, "  ", info)
 }
 
