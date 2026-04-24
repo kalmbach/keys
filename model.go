@@ -10,11 +10,17 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// Catppuccin Mocha subset — https://catppuccin.com/palette
 var (
-	appNameStyle = lipgloss.NewStyle().Background(lipgloss.Color("99")).Padding(0, 1)
-	cursorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99")).Bold(true)
-	currentKeyStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
-	faintStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("255")).Faint(true)
+	mochaBase     = lipgloss.Color("#1e1e2e")
+	mochaText     = lipgloss.Color("#cdd6f4")
+	mochaOverlay0 = lipgloss.Color("#6c7086")
+	mochaMauve    = lipgloss.Color("#cba6f7")
+
+	appNameStyle    = lipgloss.NewStyle().Background(mochaMauve).Foreground(mochaBase).Bold(true).Padding(0, 1)
+	cursorStyle     = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
+	currentKeyStyle = lipgloss.NewStyle().Foreground(mochaText)
+	faintStyle      = lipgloss.NewStyle().Foreground(mochaOverlay0)
 )
 
 const (
@@ -36,12 +42,13 @@ type keysReloadedMsg struct {
 }
 
 type model struct {
-	keys   []Key
-	cursor int
-	mode   mode
-	input  string
-	status string
-	err    error
+	keys     []Key
+	cursor   int
+	mode     mode
+	input    string
+	status   string
+	err      error
+	showHelp bool
 }
 
 func newModel() model {
@@ -82,6 +89,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateIdle(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.showHelp {
+		switch msg.String() {
+		case "esc", "?":
+			m.showHelp = false
+		}
+		return m, nil
+	}
 	switch msg.String() {
 	case "esc", "q":
 		return m, tea.Quit
@@ -103,6 +117,8 @@ func (m model) updateIdle(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.status = ""
 			}
 		}
+	case "?":
+		m.showHelp = true
 	}
 	return m, nil
 }
@@ -152,7 +168,20 @@ func reloadKeysCmd() tea.Msg {
 
 func (m model) View() tea.View {
 	var s strings.Builder
-	s.WriteString(appNameStyle.Render(appName) + "\n\n")
+	title := appName
+	if m.showHelp {
+		title = "HELP"
+	}
+
+	s.WriteString(appNameStyle.Render(title) + "\n\n")
+
+	if m.showHelp {
+		s.WriteString("↑/↓ or j/k - move\n")
+		s.WriteString("e - edit expiry\n")
+		s.WriteString("? - hide help\n")
+		s.WriteString("\n" + faintStyle.Render("esc - go back"))
+		return tea.NewView(s.String())
+	}
 
 	if m.err != nil {
 		fmt.Fprintf(&s, "Error loading keys: %v\n", m.err)
@@ -206,7 +235,7 @@ func (m model) View() tea.View {
 		if m.status != "" {
 			s.WriteString("\n" + faintStyle.Render(m.status))
 		}
-		s.WriteString(faintStyle.Render("\n↑/↓ or j/k - move, e - edit expiry, q/esc - quit"))
+		s.WriteString(faintStyle.Render("\n? - help, q/esc - quit"))
 	}
 	return tea.NewView(s.String())
 }
