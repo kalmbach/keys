@@ -1,4 +1,4 @@
-module github.cim/kalmbach/keys
+module github.com/kalmbach/keys
 
 go 1.26.1
 
