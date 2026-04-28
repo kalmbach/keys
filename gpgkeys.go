@@ -45,9 +45,11 @@ func LoadKeys() ([]Key, error) {
 		if sub := k.SubKeys(); sub != nil {
 			uid := k.UserIDs()
 			var primary UID
+
 			if uid != nil {
 				primary = UID{Name: uid.Name(), Comment: uid.Comment(), Email: uid.Email()}
 			}
+
 			keys = append(keys, Key{
 				KeyID:       sub.KeyID(),
 				Fingerprint: sub.Fingerprint(),

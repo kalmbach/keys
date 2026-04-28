@@ -25,10 +25,10 @@ var (
 	faintStyle      = lipgloss.NewStyle().Foreground(mochaOverlay0)
 )
 
-const logoArt = "\n ▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
+const logoArt = "▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
 
 func renderHeader(title string) string {
-	logo := logoStyle.Render(logoArt)
+	logo := "\n" + logoStyle.Render(logoArt)
 	info := "\n" + titleStyle.Render(title) + "\n" + faintStyle.Render("v"+version)
 	return lipgloss.JoinHorizontal(lipgloss.Top, logo, "  ", info)
 }
@@ -128,6 +128,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+
 	return m, nil
 }
 
@@ -139,6 +140,7 @@ func (m model) updateIdle(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+
 	switch msg.String() {
 	case "esc", "q":
 		return m, tea.Quit
@@ -176,6 +178,7 @@ func (m model) updateIdle(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.showHelp = true
 	}
+
 	return m, nil
 }
 
@@ -201,9 +204,11 @@ func (m model) updateExpire(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+
 	if msg.Text != "" {
 		m.input += msg.Text
 	}
+
 	return m, nil
 }
 
@@ -211,7 +216,9 @@ func expireCmd(fingerprint, when string) tea.Cmd {
 	if strings.EqualFold(when, "never") {
 		when = "0"
 	}
+
 	c := exec.Command("gpg", "--quick-set-expire", fingerprint, when)
+
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return expireDoneMsg{err: err}
 	})
@@ -228,12 +235,15 @@ func yankCmd(path, filename string) tea.Cmd {
 		if err != nil {
 			return clipboardDoneMsg{filename: filename, err: err}
 		}
+
 		tool, args := clipboardTool()
 		if tool == "" {
 			return clipboardDoneMsg{filename: filename, err: errors.New("no clipboard tool found (install wl-clipboard, xclip, or xsel)")}
 		}
+
 		c := exec.Command(tool, args...)
 		c.Stdin = strings.NewReader(string(data))
+
 		return clipboardDoneMsg{filename: filename, err: c.Run()}
 	}
 }
@@ -244,21 +254,26 @@ func clipboardTool() (string, []string) {
 			return "wl-copy", nil
 		}
 	}
+
 	if _, err := exec.LookPath("xclip"); err == nil {
 		return "xclip", []string{"-selection", "clipboard"}
 	}
+
 	if _, err := exec.LookPath("xsel"); err == nil {
 		return "xsel", []string{"--clipboard", "--input"}
 	}
+
 	return "", nil
 }
 
 func (m model) View() tea.View {
 	var s strings.Builder
 	title := "GPG KEYS"
+
 	if m.source == sourceSSH {
 		title = "SSH KEYS"
 	}
+
 	if m.showHelp {
 		title = "HELP"
 	}
@@ -293,19 +308,23 @@ func (m model) View() tea.View {
 		}
 		s.WriteString(faintStyle.Render("\n? - help, q/esc - quit"))
 	}
+
 	return tea.NewView(s.String())
 }
 
 func renderGPGList(m model) string {
 	var s strings.Builder
+
 	if m.gpgErr != nil {
 		fmt.Fprintf(&s, "Error loading GPG keys: %v\n", m.gpgErr)
 		return s.String()
 	}
+
 	if len(m.gpgKeys) == 0 {
 		s.WriteString("No GPG keys found.\n")
 		return s.String()
 	}
+
 	for i, k := range m.gpgKeys {
 		kind := "pub"
 		if k.Secret {
@@ -335,22 +354,27 @@ func renderGPGList(m model) string {
 			marker = cursorStyle.Render("> ")
 			style = currentKeyStyle
 		}
+
 		line := fmt.Sprintf("[%s]  %s  %s  [%s]", kind, k.KeyID, uid, expiry)
 		s.WriteString(marker + style.Render(line) + "\n")
 	}
+
 	return s.String()
 }
 
 func renderSSHList(m model) string {
 	var s strings.Builder
+
 	if m.sshErr != nil {
 		fmt.Fprintf(&s, "Error loading SSH keys: %v\n", m.sshErr)
 		return s.String()
 	}
+
 	if len(m.sshKeys) == 0 {
 		s.WriteString("No SSH keys found.\n")
 		return s.String()
 	}
+
 	for i, k := range m.sshKeys {
 		kind := "pub"
 		if k.HasPrivate {
@@ -370,5 +394,6 @@ func renderSSHList(m model) string {
 		line := fmt.Sprintf("[%s]  %s  %s  (%s)", kind, k.Type, comment, k.Filename)
 		s.WriteString(marker + style.Render(line) + "\n")
 	}
+
 	return s.String()
 }

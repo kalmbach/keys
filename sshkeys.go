@@ -25,6 +25,7 @@ func LoadSSHKeys() ([]SSHKey, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	dir := filepath.Join(home, ".ssh")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -39,19 +40,23 @@ func LoadSSHKeys() ([]SSHKey, error) {
 		if e.IsDir() {
 			continue
 		}
+
 		name := e.Name()
 		if !strings.HasSuffix(name, ".pub") {
 			continue
 		}
+
 		if strings.HasSuffix(name, "-cert.pub") {
 			continue
 		}
+
 		path := filepath.Join(dir, name)
 
 		k, err := parseSSHPub(path)
 		if err != nil {
 			continue
 		}
+
 		k.Filename = name
 		k.Path = path
 
@@ -71,21 +76,25 @@ func parseSSHPub(path string) (SSHKey, error) {
 	if err != nil {
 		return SSHKey{}, err
 	}
+
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
 	if !scanner.Scan() {
 		return SSHKey{}, errors.New("empty file")
 	}
+
 	line := strings.TrimSpace(scanner.Text())
 	parts := strings.SplitN(line, " ", 3)
 	if len(parts) < 2 {
 		return SSHKey{}, errors.New("malformed pub key")
 	}
+
 	blob, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
 		return SSHKey{}, err
 	}
+
 	sum := sha256.Sum256(blob)
 	fp := "SHA256:" + strings.TrimRight(base64.StdEncoding.EncodeToString(sum[:]), "=")
 
@@ -116,5 +125,6 @@ func normalizeSSHType(t string) string {
 	case strings.HasPrefix(t, "sk-ssh-ed25519"):
 		return "sk-ed25519"
 	}
+
 	return t
 }
