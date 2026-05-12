@@ -41,3 +41,7 @@ go install github.com/kalmbach/keys@latest
 
 The binary lands in `$(go env GOPATH)/bin` — make sure that directory is on
 your `PATH`.
+
+## Version
+
+Current Version 0.3.0

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -95,8 +96,7 @@ func parseSSHPub(path string) (SSHKey, error) {
 		return SSHKey{}, err
 	}
 
-	sum := sha256.Sum256(blob)
-	fp := "SHA256:" + strings.TrimRight(base64.StdEncoding.EncodeToString(sum[:]), "=")
+	fp := sshFingerprintFromBlob(blob)
 
 	comment := ""
 	if len(parts) == 3 {
@@ -108,6 +108,30 @@ func parseSSHPub(path string) (SSHKey, error) {
 		Fingerprint: fp,
 		Comment:     comment,
 	}, nil
+}
+
+func sshFingerprintFromBlob(blob []byte) string {
+	sum := sha256.Sum256(blob)
+	return "SHA256:" + strings.TrimRight(base64.StdEncoding.EncodeToString(sum[:]), "=")
+}
+
+func sshAgentHasFingerprint(agentOutput []byte, fingerprint string) bool {
+	scanner := bufio.NewScanner(bytes.NewReader(agentOutput))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		parts := strings.SplitN(line, " ", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		blob, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			continue
+		}
+		if sshFingerprintFromBlob(blob) == fingerprint {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeSSHType(t string) string {
