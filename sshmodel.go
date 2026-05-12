@@ -19,6 +19,7 @@ const (
 	sshModeGenerate
 	sshModeDeleteConfirm
 	sshModeDetails
+	sshModeChangeComment
 )
 
 type genStep int
@@ -30,6 +31,10 @@ const (
 )
 
 type sshGenerateDoneMsg struct{ err error }
+
+type sshChangeCommentDoneMsg struct{ err error }
+
+type sshChangePassphraseDoneMsg struct{ err error }
 
 type sshDeleteDoneMsg struct {
 	name string
@@ -79,47 +84,83 @@ func (s sshModel) update(msg tea.Msg) (sshModel, tea.Cmd) {
 		switch s.mode {
 		case sshModeGenerate:
 			return s.updateGenerate(msg)
+
 		case sshModeDeleteConfirm:
 			return s.updateDeleteConfirm(msg)
+
 		case sshModeDetails:
 			return s.updateDetails(msg)
+
+		case sshModeChangeComment:
+			return s.updateChangeComment(msg)
 		}
+
 		return s.updateIdle(msg)
+
 	case sshGenerateDoneMsg:
 		if msg.err != nil {
 			s.status = fmt.Sprintf("ssh-keygen error: %v", msg.err)
 		} else {
 			s.status = "key generated"
 		}
+
 		return s, reloadSSHKeysCmd
+
+	case sshChangeCommentDoneMsg:
+		if msg.err != nil {
+			s.status = fmt.Sprintf("change comment error: %v", msg.err)
+		} else {
+			s.status = "comment updated"
+		}
+
+		return s, reloadSSHKeysCmd
+
+	case sshChangePassphraseDoneMsg:
+		if msg.err != nil {
+			s.status = fmt.Sprintf("change passphrase error: %v", msg.err)
+		} else {
+			s.status = "passphrase updated"
+		}
+
+		return s, nil
+
 	case sshDeleteDoneMsg:
 		if msg.err != nil {
 			s.status = fmt.Sprintf("delete error: %v", msg.err)
 		} else {
 			s.status = fmt.Sprintf("deleted %s", msg.name)
 		}
+
 		return s, reloadSSHKeysCmd
+
 	case sshClipboardDoneMsg:
 		if msg.err != nil {
 			s.status = fmt.Sprintf("clipboard error: %v", msg.err)
 		} else {
 			s.status = fmt.Sprintf("copied %s", msg.filename)
 		}
+
 		return s, nil
+
 	case sshDetailsMsg:
 		s.details = msg.details
 		return s, nil
+
 	case sshKeysReloadedMsg:
 		s.keys = msg.keys
 		s.err = msg.err
+
 		if s.cursor >= len(s.keys) {
 			s.cursor = len(s.keys) - 1
 		}
+
 		if s.cursor < 0 {
 			s.cursor = 0
 		}
+
 		return s, nil
 	}
+
 	return s, nil
 }
 
@@ -129,15 +170,18 @@ func (s sshModel) updateIdle(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 		if s.err == nil && s.cursor > 0 {
 			s.cursor--
 		}
+
 	case "down", "j":
 		if s.err == nil && s.cursor < len(s.keys)-1 {
 			s.cursor++
 		}
+
 	case "y":
 		if s.err == nil && len(s.keys) > 0 {
 			k := s.keys[s.cursor]
 			return s, yankCmd(k.Path, k.Filename)
 		}
+
 	case "g":
 		if s.err == nil {
 			s.mode = sshModeGenerate
@@ -147,20 +191,39 @@ func (s sshModel) updateIdle(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 			s.input = ""
 			s.status = ""
 		}
+
 	case "d":
 		if s.err == nil && len(s.keys) > 0 {
 			s.mode = sshModeDeleteConfirm
 			s.status = ""
 		}
+
+	case "c":
+		if s.err == nil && len(s.keys) > 0 && s.keys[s.cursor].HasPrivate {
+			s.mode = sshModeChangeComment
+			s.input = s.keys[s.cursor].Comment
+			s.status = ""
+		}
+
+	case "p":
+		if s.err == nil && len(s.keys) > 0 && s.keys[s.cursor].HasPrivate {
+			k := s.keys[s.cursor]
+			priv := strings.TrimSuffix(k.Path, ".pub")
+			s.status = ""
+			return s, changePassphraseCmd(priv)
+		}
+
 	case "enter":
 		if s.err == nil && len(s.keys) > 0 {
 			k := s.keys[s.cursor]
 			s.mode = sshModeDetails
 			s.details = sshDetails{}
 			s.status = ""
+
 			return s, fetchSSHDetailsCmd(k.Path, k.Fingerprint)
 		}
 	}
+
 	return s, nil
 }
 
@@ -170,6 +233,7 @@ func (s sshModel) updateDetails(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 		s.mode = sshModeIdle
 		s.details = sshDetails{}
 	}
+
 	return s, nil
 }
 
@@ -178,13 +242,16 @@ func (s sshModel) updateDeleteConfirm(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 		s.mode = sshModeIdle
 		return s, nil
 	}
+
 	if k := msg.String(); k == "y" || k == "Y" {
 		key := s.keys[s.cursor]
 		priv := strings.TrimSuffix(key.Path, ".pub")
 		name := strings.TrimSuffix(key.Filename, ".pub")
 		s.mode = sshModeIdle
+
 		return s, deleteSSHKeyCmd(priv, key.Path, name)
 	}
+
 	s.mode = sshModeIdle
 	return s, nil
 }
@@ -195,37 +262,80 @@ func (s sshModel) updateGenerate(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 		s.mode = sshModeIdle
 		s.input = ""
 		return s, nil
+
 	case "enter":
 		val := strings.TrimSpace(s.input)
 		s.input = ""
+
 		switch s.genStep {
 		case genStepType:
 			if val == "" {
 				val = "ed25519"
 			}
+
 			s.genType = val
 			s.genStep = genStepComment
 			return s, nil
+
 		case genStepComment:
 			if val == "" {
 				val = defaultSSHComment()
 			}
+
 			s.genComment = val
 			s.genStep = genStepFilename
 			return s, nil
+
 		case genStepFilename:
 			if val == "" {
 				val = "id_" + s.genType
 			}
-			path, err := resolveSSHKeyPath(val)
+
+			path, err := resolveSSHKeyBasename(val)
 			if err != nil {
-				s.mode = sshModeIdle
-				s.status = fmt.Sprintf("path error: %v", err)
+				s.status = fmt.Sprintf("invalid name: %v", err)
 				return s, nil
 			}
+
 			s.mode = sshModeIdle
 			return s, generateKeyCmd(s.genType, s.genComment, path)
 		}
+	case "backspace":
+		if len(s.input) > 0 {
+			r := []rune(s.input)
+			s.input = string(r[:len(r)-1])
+		}
+
+		return s, nil
+	}
+
+	if msg.Text != "" {
+		s.input += msg.Text
+	}
+
+	return s, nil
+}
+
+func (s sshModel) updateChangeComment(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		s.mode = sshModeIdle
+		s.input = ""
+		return s, nil
+
+	case "enter":
+		val := strings.TrimSpace(s.input)
+		if val == "" {
+			s.status = "comment cannot be empty"
+			return s, nil
+		}
+
+		k := s.keys[s.cursor]
+		priv := strings.TrimSuffix(k.Path, ".pub")
+		s.mode = sshModeIdle
+		s.input = ""
+		return s, changeCommentCmd(priv, val)
+
 	case "backspace":
 		if len(s.input) > 0 {
 			r := []rune(s.input)
@@ -249,49 +359,63 @@ func (s sshModel) view() string {
 	var sb strings.Builder
 	sb.WriteString(s.renderList())
 
-	if s.mode == sshModeGenerate {
+	if s.mode == sshModeGenerate || s.mode == sshModeChangeComment {
 		label, hint := s.prompt()
 		sb.WriteString("\n")
 		fmt.Fprintf(&sb, "%s: %s_\n", label, s.input)
 		sb.WriteString(faintStyle.Render(hint))
+
 	} else if s.mode == sshModeDeleteConfirm && len(s.keys) > 0 {
 		k := s.keys[s.cursor]
 		name := strings.TrimSuffix(k.Filename, ".pub")
 		sb.WriteString("\n")
 		fmt.Fprintf(&sb, "Delete %s and %s? ", name, k.Filename)
 		sb.WriteString(faintStyle.Render("y to confirm, anything else to cancel"))
+
 	} else if s.status != "" {
 		sb.WriteString("\n" + faintStyle.Render(s.status))
 	}
+
 	return sb.String()
 }
 
 func (s sshModel) prompt() (string, string) {
+	if s.mode == sshModeChangeComment {
+		return "New comment", "enter to confirm, esc to cancel — ssh-keygen may prompt for passphrase"
+	}
+
 	switch s.genStep {
 	case genStepType:
 		return "Type", "ed25519 (default), rsa, ecdsa — enter to confirm, esc to cancel"
+
 	case genStepComment:
 		return "Comment", fmt.Sprintf("default: %s — enter to confirm, esc to cancel", defaultSSHComment())
+
 	case genStepFilename:
-		return "Filename", fmt.Sprintf("default: ~/.ssh/id_%s — relative paths go under ~/.ssh — enter to confirm, esc to cancel", s.genType)
+		return "Filename", fmt.Sprintf("default: id_%s — basename only, written to ~/.ssh — enter to confirm, esc to cancel", s.genType)
 	}
+
 	return "", ""
 }
 
 func (s sshModel) renderDetails() string {
 	k := s.keys[s.cursor]
 	bits := s.details.bits
+
 	if bits == "" {
 		bits = "…"
 	}
+
 	agent := s.details.agentStatus
 	if agent == "" {
 		agent = "…"
 	}
+
 	comment := k.Comment
 	if comment == "" {
 		comment = "-"
 	}
+
 	priv := "no"
 	if k.HasPrivate {
 		priv = "yes"
@@ -311,9 +435,11 @@ func (s sshModel) renderDetails() string {
 	for _, r := range rows {
 		fmt.Fprintf(&sb, "%-13s %s\n", r[0]+":", r[1])
 	}
+
 	if s.details.randomart != "" {
 		sb.WriteString("\n" + s.details.randomart + "\n")
 	}
+
 	sb.WriteString("\n" + faintStyle.Render("esc/enter - back"))
 	return sb.String()
 }
@@ -339,14 +465,17 @@ func (s sshModel) renderList() string {
 
 		marker := "  "
 		style := faintStyle
+
 		if i == s.cursor {
 			marker = cursorStyle.Render("> ")
 			style = currentKeyStyle
 		}
+
 		comment := k.Comment
 		if comment == "" {
 			comment = "-"
 		}
+
 		line := fmt.Sprintf("[%s]  %s  %s  (%s)", kind, k.Type, comment, k.Filename)
 		sb.WriteString(marker + style.Render(line) + "\n")
 	}
@@ -357,33 +486,52 @@ func (s sshModel) renderList() string {
 func defaultSSHComment() string {
 	user := os.Getenv("USER")
 	host, err := os.Hostname()
+
 	if err != nil || host == "" {
 		host = "localhost"
 	}
+
 	if user == "" {
 		return host
 	}
+
 	return user + "@" + host
 }
 
-func resolveSSHKeyPath(in string) (string, error) {
+func resolveSSHKeyBasename(in string) (string, error) {
+	if in != filepath.Base(in) {
+		return "", fmt.Errorf("name must be a basename (no path separators)")
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	if strings.HasPrefix(in, "~/") {
-		return filepath.Join(home, in[2:]), nil
-	}
-	if filepath.IsAbs(in) {
-		return in, nil
-	}
+
 	return filepath.Join(home, ".ssh", in), nil
 }
 
 func generateKeyCmd(keyType, comment, path string) tea.Cmd {
 	c := exec.Command("ssh-keygen", "-t", keyType, "-C", comment, "-f", path)
+
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		return sshGenerateDoneMsg{err: err}
+	})
+}
+
+func changeCommentCmd(path, comment string) tea.Cmd {
+	c := exec.Command("ssh-keygen", "-c", "-C", comment, "-f", path)
+
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return sshChangeCommentDoneMsg{err: err}
+	})
+}
+
+func changePassphraseCmd(path string) tea.Cmd {
+	c := exec.Command("ssh-keygen", "-p", "-f", path)
+
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return sshChangePassphraseDoneMsg{err: err}
 	})
 }
 
@@ -393,15 +541,18 @@ func fetchSSHDetailsCmd(path, fingerprint string) tea.Cmd {
 
 		if out, err := exec.Command("ssh-keygen", "-l", "-v", "-f", path).Output(); err == nil {
 			lines := strings.Split(strings.TrimRight(string(out), "\n"), "\n")
+
 			if len(lines) > 0 {
 				if fields := strings.Fields(lines[0]); len(fields) > 0 {
 					d.bits = fields[0]
 				}
 			}
+
 			if len(lines) > 1 {
 				d.randomart = strings.Join(lines[1:], "\n")
 			}
 		}
+
 		if d.bits == "" {
 			d.bits = "?"
 		}
@@ -409,16 +560,21 @@ func fetchSSHDetailsCmd(path, fingerprint string) tea.Cmd {
 		out, err := exec.Command("ssh-add", "-L").Output()
 		if err != nil {
 			ee, ok := err.(*exec.ExitError)
+
 			switch {
 			case ok && ee.ExitCode() == 1:
 				d.agentStatus = "not loaded"
+
 			case ok && ee.ExitCode() == 2:
 				d.agentStatus = "agent unavailable"
+
 			default:
 				d.agentStatus = "agent error"
 			}
+
 		} else if sshAgentHasFingerprint(out, fingerprint) {
 			d.agentStatus = "loaded"
+
 		} else {
 			d.agentStatus = "not loaded"
 		}
@@ -437,6 +593,7 @@ func deleteSSHKeyCmd(privPath, pubPath, name string) tea.Cmd {
 				}
 			}
 		}
+
 		return sshDeleteDoneMsg{name: name, err: firstErr}
 	}
 }

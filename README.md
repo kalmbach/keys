@@ -6,15 +6,32 @@ Run `keys` to open the TUI. `keys --version` prints the version and exits.
 
 Key bindings:
 
+Global
+
 | key       | action                            |
 |-----------|-----------------------------------|
 | `tab`     | switch between GPG and SSH views  |
 | `↑` / `k` | move up                           |
 | `↓` / `j` | move down                         |
-| `e`       | edit expiry (GPG only)            |
-| `y`       | yank public key to clipboard (SSH only) |
 | `?`       | toggle help                       |
 | `q`, `esc`| quit                              |
+
+GPG keys
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `e`       | edit expiry                       |
+
+SSH keys
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `enter`   | show key details                  |
+| `y`       | yank public key to clipboard      |
+| `g`       | generate new key                  |
+| `c`       | change comment                    |
+| `p`       | change passphrase                 |
+| `d`       | delete key pair                   |
 
 GPG keys are loaded via `libgpgme`.
 
@@ -44,4 +61,4 @@ your `PATH`.
 
 ## Version
 
-Current Version 0.3.0
+Current Version 0.4.0

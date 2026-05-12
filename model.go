@@ -64,7 +64,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case gpgExpireDoneMsg, gpgKeysReloadedMsg:
 		m.gpg, cmd = m.gpg.update(msg)
-	case sshGenerateDoneMsg, sshDeleteDoneMsg, sshDetailsMsg, sshKeysReloadedMsg, sshClipboardDoneMsg:
+	case sshGenerateDoneMsg, sshChangeCommentDoneMsg, sshChangePassphraseDoneMsg, sshDeleteDoneMsg, sshDetailsMsg, sshKeysReloadedMsg, sshClipboardDoneMsg:
 		m.ssh, cmd = m.ssh.update(msg)
 	}
 	return m, cmd
@@ -82,17 +82,20 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "esc", "q":
 			return m, tea.Quit
+
 		case "tab":
 			if m.source == sourceGPG {
 				m.source = sourceSSH
 				m.ssh.cursor = 0
 				m.ssh.status = ""
+
 			} else {
 				m.source = sourceGPG
 				m.gpg.cursor = 0
 				m.gpg.status = ""
 			}
 			return m, nil
+
 		case "?":
 			m.showHelp = true
 			return m, nil
@@ -106,6 +109,7 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case sourceSSH:
 		m.ssh, cmd = m.ssh.update(msg)
 	}
+
 	return m, cmd
 }
 
@@ -133,6 +137,8 @@ func (m model) View() tea.View {
 		s.WriteString("enter - show details\n")
 		s.WriteString("y - yank public key\n")
 		s.WriteString("g - generate new key\n")
+		s.WriteString("c - change comment\n")
+		s.WriteString("p - change passphrase\n")
 		s.WriteString("d - delete key pair\n")
 		s.WriteString("\n" + faintStyle.Render("esc - go back"))
 		return tea.NewView(s.String())

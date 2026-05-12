@@ -33,6 +33,7 @@ func LoadSSHKeys() ([]SSHKey, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil
 		}
+
 		return nil, err
 	}
 
@@ -52,7 +53,6 @@ func LoadSSHKeys() ([]SSHKey, error) {
 		}
 
 		path := filepath.Join(dir, name)
-
 		k, err := parseSSHPub(path)
 		if err != nil {
 			continue
@@ -117,20 +117,24 @@ func sshFingerprintFromBlob(blob []byte) string {
 
 func sshAgentHasFingerprint(agentOutput []byte, fingerprint string) bool {
 	scanner := bufio.NewScanner(bytes.NewReader(agentOutput))
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		parts := strings.SplitN(line, " ", 3)
 		if len(parts) < 2 {
 			continue
 		}
+
 		blob, err := base64.StdEncoding.DecodeString(parts[1])
 		if err != nil {
 			continue
 		}
+
 		if sshFingerprintFromBlob(blob) == fingerprint {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -138,14 +142,19 @@ func normalizeSSHType(t string) string {
 	switch {
 	case strings.HasPrefix(t, "ssh-ed25519"):
 		return "ed25519"
+
 	case strings.HasPrefix(t, "ssh-rsa"):
 		return "rsa"
+
 	case strings.HasPrefix(t, "ssh-dss"):
 		return "dsa"
+
 	case strings.HasPrefix(t, "ecdsa-sha2-"):
 		return "ecdsa"
+
 	case strings.HasPrefix(t, "sk-ecdsa-"):
 		return "sk-ecdsa"
+
 	case strings.HasPrefix(t, "sk-ssh-ed25519"):
 		return "sk-ed25519"
 	}
