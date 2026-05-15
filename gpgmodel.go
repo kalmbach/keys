@@ -298,6 +298,14 @@ func formatKeyRow(sk SubKey, selected bool) string {
 		parts = append(parts, "[revoked]")
 	}
 
+	if sk.Invalid {
+		parts = append(parts, "[invalid]")
+	}
+
+	if sk.Disabled {
+		parts = append(parts, "[disabled]")
+	}
+
 	return strings.Join(parts, "  ")
 }
 

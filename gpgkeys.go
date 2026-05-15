@@ -26,6 +26,8 @@ type SubKey struct {
 	Secret      bool
 	Revoked     bool
 	Expired     bool
+	Invalid     bool
+	Disabled    bool
 }
 
 type Key struct {
@@ -112,13 +114,15 @@ func parseKeyList(out []byte, secret map[string]bool) []Key {
 
 			cur = &Key{
 				Primary: SubKey{
-					KeyID:   fields[4],
-					Created: parseTimestamp(fields[5]),
-					Expires: parseTimestamp(fields[6]),
-					Algo:    algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
-					Caps:    extractCaps(fields[11]),
-					Revoked: fields[1] == "r",
-					Expired: fields[1] == "e",
+					KeyID:    fields[4],
+					Created:  parseTimestamp(fields[5]),
+					Expires:  parseTimestamp(fields[6]),
+					Algo:     algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
+					Caps:     extractCaps(fields[11]),
+					Revoked:  fields[1] == "r",
+					Expired:  fields[1] == "e",
+					Invalid:  fields[1] == "i",
+					Disabled: strings.ContainsRune(fields[11], 'D'),
 				},
 			}
 			pendingPrimaryFpr = true
@@ -130,13 +134,15 @@ func parseKeyList(out []byte, secret map[string]bool) []Key {
 			}
 
 			cur.SubKeys = append(cur.SubKeys, SubKey{
-				KeyID:   fields[4],
-				Created: parseTimestamp(fields[5]),
-				Expires: parseTimestamp(fields[6]),
-				Algo:    algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
-				Caps:    extractCaps(fields[11]),
-				Revoked: fields[1] == "r",
-				Expired: fields[1] == "e",
+				KeyID:    fields[4],
+				Created:  parseTimestamp(fields[5]),
+				Expires:  parseTimestamp(fields[6]),
+				Algo:     algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
+				Caps:     extractCaps(fields[11]),
+				Revoked:  fields[1] == "r",
+				Expired:  fields[1] == "e",
+				Invalid:  fields[1] == "i",
+				Disabled: strings.ContainsRune(fields[11], 'D'),
 			})
 			pendingSub = &cur.SubKeys[len(cur.SubKeys)-1]
 
