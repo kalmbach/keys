@@ -33,26 +33,26 @@ SSH keys
 | `p`       | change passphrase                 |
 | `d`       | delete key pair                   |
 
-GPG keys are loaded via `libgpgme`.
-
-SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub` files are skipped).
+GPG keys are loaded by shelling out to `gpg --with-colons` and parsing the
+output. SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub`
+files are skipped). Both `gpg` and `ssh-keygen` must be available on `PATH`
+at runtime — almost always already the case on Linux and macOS.
 
 ## Install
 
-One-liner (Ubuntu/Debian):
+One-liner:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/kalmbach/keys/main/install.sh | bash
 ```
 
-The script checks for `libgpgme-dev`, offers to `sudo apt-get install` it if
-missing, and then runs `go install github.com/kalmbach/keys@latest`. A Go
-toolchain is required; install one from https://go.dev/dl/ first.
+The script checks for the Go toolchain, warns if `gpg` or `ssh-keygen` are
+missing, and runs `go install github.com/kalmbach/keys@latest`. A Go toolchain
+is required; install one from https://go.dev/dl/ first.
 
 Prefer to do it by hand:
 
 ```
-sudo apt-get install -y libgpgme-dev
 go install github.com/kalmbach/keys@latest
 ```
 
@@ -61,4 +61,4 @@ your `PATH`.
 
 ## Version
 
-Current Version 0.4.0
+Current Version 0.5.0
