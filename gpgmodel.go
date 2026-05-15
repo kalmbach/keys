@@ -295,18 +295,10 @@ func formatKeyRow(sk SubKey, selected bool) string {
 	parts = append(parts, expiryLabel(sk.Expires, sk.Expired, selected))
 
 	if sk.Revoked {
-		parts = append(parts, revokedLabel(selected))
+		parts = append(parts, "[revoked]")
 	}
 
 	return strings.Join(parts, "  ")
-}
-
-func revokedLabel(selected bool) string {
-	if selected {
-		return expiredStyle.Render("[revoked]")
-	}
-
-	return expiredFaintStyle.Render("[revoked]")
 }
 
 func expiryLabel(t time.Time, expired, selected bool) string {
@@ -315,11 +307,7 @@ func expiryLabel(t time.Time, expired, selected bool) string {
 	}
 
 	if expired {
-		if selected {
-			return expiredStyle.Render("[expired]")
-		}
-
-		return expiredFaintStyle.Render("[expired]")
+		return "[expired]"
 	}
 
 	now := time.Now()

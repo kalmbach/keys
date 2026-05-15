@@ -9,21 +9,17 @@ import (
 
 // Catppuccin Mocha subset — https://catppuccin.com/palette
 var (
-	mochaText      = lipgloss.Color("#cdd6f4")
-	mochaOverlay0  = lipgloss.Color("#6c7086")
-	mochaMauve     = lipgloss.Color("#cba6f7")
-	mochaMaroon    = lipgloss.Color("#eba0ac")
-	mochaMaroonDim = lipgloss.Color("#8d6068")
-	mochaPeach     = lipgloss.Color("#fab387")
-	mochaPeachDim  = lipgloss.Color("#a07150")
+	mochaText     = lipgloss.Color("#cdd6f4")
+	mochaOverlay0 = lipgloss.Color("#6c7086")
+	mochaMauve    = lipgloss.Color("#cba6f7")
+	mochaPeach    = lipgloss.Color("#fab387")
+	mochaPeachDim = lipgloss.Color("#a07150")
 
 	logoStyle         = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
 	titleStyle        = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
 	cursorStyle       = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
 	currentKeyStyle   = lipgloss.NewStyle().Foreground(mochaText)
 	faintStyle        = lipgloss.NewStyle().Foreground(mochaOverlay0)
-	expiredStyle      = lipgloss.NewStyle().Foreground(mochaMaroon)
-	expiredFaintStyle = lipgloss.NewStyle().Foreground(mochaMaroonDim)
 	warningStyle      = lipgloss.NewStyle().Foreground(mochaPeach)
 	warningFaintStyle = lipgloss.NewStyle().Foreground(mochaPeachDim)
 )
