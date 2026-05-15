@@ -288,6 +288,12 @@ func formatUIDRow(k Key) string {
 func formatKeyRow(sk SubKey, selected bool) string {
 	parts := []string{sk.Algo}
 
+	if sk.CardSerial != "" {
+		parts = append(parts, "[card]")
+	} else if sk.Secret {
+		parts = append(parts, "[disk]")
+	}
+
 	if sk.Caps != "" {
 		parts = append(parts, fmt.Sprintf("[%s]", sk.Caps))
 	}

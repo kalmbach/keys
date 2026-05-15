@@ -24,10 +24,15 @@ type SubKey struct {
 	Expires     time.Time
 	Caps        string
 	Secret      bool
+	CardSerial  string
 	Revoked     bool
 	Expired     bool
 	Invalid     bool
 	Disabled    bool
+}
+
+type secretInfo struct {
+	cardSerial string
 }
 
 type Key struct {
@@ -38,7 +43,7 @@ type Key struct {
 }
 
 func LoadKeys() ([]Key, error) {
-	secret, err := loadSecretFingerprints()
+	secret, err := loadSecretInfo()
 	if err != nil {
 		return nil, err
 	}
@@ -51,15 +56,15 @@ func LoadKeys() ([]Key, error) {
 	return parseKeyList(out, secret), nil
 }
 
-func loadSecretFingerprints() (map[string]bool, error) {
+func loadSecretInfo() (map[string]secretInfo, error) {
 	out, err := runGPG("--with-colons", "--list-secret-keys")
 	if err != nil {
 		return nil, err
 	}
 
-	set := map[string]bool{}
+	set := map[string]secretInfo{}
 	sc := bufio.NewScanner(bytes.NewReader(out))
-	pending := false
+	var pending *secretInfo
 
 	for sc.Scan() {
 		fields := strings.Split(sc.Text(), ":")
@@ -69,12 +74,16 @@ func loadSecretFingerprints() (map[string]bool, error) {
 
 		switch fields[0] {
 		case "sec", "ssb":
-			pending = true
+			info := secretInfo{}
+			if colonField(fields, 14) == ">" {
+				info.cardSerial = colonField(fields, 15)
+			}
+			pending = &info
 
 		case "fpr":
-			if pending && len(fields) >= 10 {
-				set[fields[9]] = true
-				pending = false
+			if pending != nil && len(fields) >= 10 {
+				set[fields[9]] = *pending
+				pending = nil
 			}
 		}
 	}
@@ -82,7 +91,7 @@ func loadSecretFingerprints() (map[string]bool, error) {
 	return set, sc.Err()
 }
 
-func parseKeyList(out []byte, secret map[string]bool) []Key {
+func parseKeyList(out []byte, secret map[string]secretInfo) []Key {
 	var keys []Key
 	var cur *Key
 	var pendingSub *SubKey
@@ -152,14 +161,18 @@ func parseKeyList(out []byte, secret map[string]bool) []Key {
 			}
 
 			fpr := fields[9]
+			info, hasSecret := secret[fpr]
+
 			if pendingPrimaryFpr {
 				cur.Primary.Fingerprint = fpr
-				cur.Primary.Secret = secret[fpr]
+				cur.Primary.Secret = hasSecret
+				cur.Primary.CardSerial = info.cardSerial
 				pendingPrimaryFpr = false
 
 			} else if pendingSub != nil {
 				pendingSub.Fingerprint = fpr
-				pendingSub.Secret = secret[fpr]
+				pendingSub.Secret = hasSecret
+				pendingSub.CardSerial = info.cardSerial
 				pendingSub = nil
 			}
 
