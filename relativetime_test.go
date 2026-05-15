@@ -51,3 +51,35 @@ func TestRelativeExpires(t *testing.T) {
 		})
 	}
 }
+
+func TestExpiringSoon(t *testing.T) {
+	at := func(year int, month time.Month, day int) time.Time {
+		return time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+	}
+
+	now := at(2026, time.May, 15)
+
+	tests := []struct {
+		name string
+		t    time.Time
+		want bool
+	}{
+		{"already past", now.Add(-24 * time.Hour), true},
+		{"today", now, true},
+		{"tomorrow", now.Add(36 * time.Hour), true},
+		{"in 15 days", now.Add(15 * 24 * time.Hour), true},
+		{"in 30 days exactly", now.Add(30 * 24 * time.Hour), true},
+		{"in 31 days", now.Add(31 * 24 * time.Hour), false},
+		{"in 2 months", at(2026, time.July, 15), false},
+		{"in 1 year", at(2027, time.May, 15), false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := expiringSoon(tc.t, now)
+			if got != tc.want {
+				t.Errorf("expiringSoon(%s) = %v, want %v", tc.t.Format(time.DateOnly), got, tc.want)
+			}
+		})
+	}
+}

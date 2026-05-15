@@ -322,7 +322,18 @@ func expiryLabel(t time.Time, expired, selected bool) string {
 		return expiredFaintStyle.Render("[expired]")
 	}
 
-	return "[" + relativeExpires(t, time.Now()) + "]"
+	now := time.Now()
+	label := "[" + relativeExpires(t, now) + "]"
+
+	if expiringSoon(t, now) {
+		if selected {
+			return warningStyle.Render(label)
+		}
+
+		return warningFaintStyle.Render(label)
+	}
+
+	return label
 }
 
 func expireCmd(primaryFpr, when, subFpr string) tea.Cmd {

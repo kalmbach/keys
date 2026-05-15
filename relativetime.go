@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+const expiringSoonDays = 30
+
+func expiringSoon(t, now time.Time) bool {
+	days := int(t.Sub(now).Hours() / 24)
+	return days <= expiringSoonDays
+}
+
 func relativeExpires(t, now time.Time) string {
 	days := int(t.Sub(now).Hours() / 24)
 
