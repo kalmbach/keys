@@ -131,15 +131,22 @@ func (m model) View() tea.View {
 		s.WriteString("tab - switch GPG/SSH\n")
 		s.WriteString("↑/↓ or j/k - move\n")
 		s.WriteString("? - hide help\n")
-		s.WriteString("\n" + faintStyle.Render("GPG keys") + "\n")
-		s.WriteString("e - edit expiry\n")
-		s.WriteString("\n" + faintStyle.Render("SSH keys") + "\n")
-		s.WriteString("enter - show details\n")
-		s.WriteString("y - yank public key\n")
-		s.WriteString("g - generate new key\n")
-		s.WriteString("c - change comment\n")
-		s.WriteString("p - change passphrase\n")
-		s.WriteString("d - delete key pair\n")
+
+		switch m.source {
+		case sourceGPG:
+			s.WriteString("\n" + faintStyle.Render("GPG keys") + "\n")
+			s.WriteString("e - edit expiry. " + faintStyle.Render("Runs gpg --quick-set-expire {fingerprint} {when}") + "\n")
+
+		case sourceSSH:
+			s.WriteString("\n" + faintStyle.Render("SSH keys") + "\n")
+			s.WriteString("enter - show details\n")
+			s.WriteString("y - yank public key\n")
+			s.WriteString("g - generate new key. " + faintStyle.Render("Runs ssh-keygen -t {keyType} -C {comment} -f {path}") + "\n")
+			s.WriteString("c - change comment. " + faintStyle.Render("Runs ssh-keygen -c -C {comment} -f {path}") + "\n")
+			s.WriteString("p - change passphrase. " + faintStyle.Render("Runs ssh-keygen -p -f {path}") + "\n")
+			s.WriteString("d - delete key pair\n")
+		}
+
 		s.WriteString("\n" + faintStyle.Render("esc - go back"))
 		return tea.NewView(s.String())
 	}
