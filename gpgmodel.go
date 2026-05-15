@@ -264,7 +264,7 @@ func renderNavRow(label string, sk SubKey, selected bool) string {
 		style = currentKeyStyle
 	}
 
-	return marker + style.Render(label+"   "+sk.KeyID+"  "+formatKeyRow(sk))
+	return marker + style.Render(label+"   "+sk.KeyID+"  "+formatKeyRow(sk, selected))
 }
 
 func formatUIDRow(k Key) string {
@@ -285,36 +285,44 @@ func formatUIDRow(k Key) string {
 	return uid
 }
 
-func formatKeyRow(sk SubKey) string {
+func formatKeyRow(sk SubKey, selected bool) string {
 	parts := []string{sk.Algo}
-
-	if !sk.Created.IsZero() {
-		parts = append(parts, sk.Created.Format(time.DateOnly))
-	}
 
 	if sk.Caps != "" {
 		parts = append(parts, fmt.Sprintf("[%s]", sk.Caps))
 	}
 
-	parts = append(parts, expiryLabel(sk.Expires, sk.Expired))
+	parts = append(parts, expiryLabel(sk.Expires, sk.Expired, selected))
 
 	if sk.Revoked {
-		parts = append(parts, "[revoked]")
+		parts = append(parts, revokedLabel(selected))
 	}
 
 	return strings.Join(parts, "  ")
 }
 
-func expiryLabel(t time.Time, expired bool) string {
+func revokedLabel(selected bool) string {
+	if selected {
+		return expiredStyle.Render("[revoked]")
+	}
+
+	return expiredFaintStyle.Render("[revoked]")
+}
+
+func expiryLabel(t time.Time, expired, selected bool) string {
 	if t.IsZero() {
 		return "[no expiry]"
 	}
 
 	if expired {
-		return fmt.Sprintf("[expired %s]", t.Format(time.DateOnly))
+		if selected {
+			return expiredStyle.Render("[expired]")
+		}
+
+		return expiredFaintStyle.Render("[expired]")
 	}
 
-	return fmt.Sprintf("[expires %s]", t.Format(time.DateOnly))
+	return "[" + relativeExpires(t, time.Now()) + "]"
 }
 
 func expireCmd(primaryFpr, when, subFpr string) tea.Cmd {

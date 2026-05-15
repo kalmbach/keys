@@ -9,15 +9,19 @@ import (
 
 // Catppuccin Mocha subset — https://catppuccin.com/palette
 var (
-	mochaText     = lipgloss.Color("#cdd6f4")
-	mochaOverlay0 = lipgloss.Color("#6c7086")
-	mochaMauve    = lipgloss.Color("#cba6f7")
+	mochaText      = lipgloss.Color("#cdd6f4")
+	mochaOverlay0  = lipgloss.Color("#6c7086")
+	mochaMauve     = lipgloss.Color("#cba6f7")
+	mochaMaroon    = lipgloss.Color("#eba0ac")
+	mochaMaroonDim = lipgloss.Color("#8d6068")
 
-	logoStyle       = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
-	titleStyle      = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
-	cursorStyle     = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
-	currentKeyStyle = lipgloss.NewStyle().Foreground(mochaText)
-	faintStyle      = lipgloss.NewStyle().Foreground(mochaOverlay0)
+	logoStyle         = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
+	titleStyle        = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
+	cursorStyle       = lipgloss.NewStyle().Foreground(mochaMauve).Bold(true)
+	currentKeyStyle   = lipgloss.NewStyle().Foreground(mochaText)
+	faintStyle        = lipgloss.NewStyle().Foreground(mochaOverlay0)
+	expiredStyle      = lipgloss.NewStyle().Foreground(mochaMaroon)
+	expiredFaintStyle = lipgloss.NewStyle().Foreground(mochaMaroonDim)
 )
 
 const logoArt = "▐▛███▜▌\n▝▜█████▛▘\n  ▘▘ ▝▝"
