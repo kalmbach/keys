@@ -477,7 +477,7 @@ func (s sshModel) renderList() string {
 		}
 
 		name := strings.TrimSuffix(k.Filename, ".pub")
-		line := fmt.Sprintf("[%s]  %s  %s  %s  (%s)", kind, k.Fingerprint, name, comment, k.Type)
+		line := fmt.Sprintf("[%s]  %s  %s  %s  (%s)", kind, shortSSHFingerprint(k.Fingerprint), name, comment, k.Type)
 		sb.WriteString(marker + style.Render(line) + "\n")
 	}
 

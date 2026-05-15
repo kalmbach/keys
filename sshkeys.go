@@ -115,6 +115,20 @@ func sshFingerprintFromBlob(blob []byte) string {
 	return "SHA256:" + strings.TrimRight(base64.StdEncoding.EncodeToString(sum[:]), "=")
 }
 
+func shortSSHFingerprint(fp string) string {
+	const n = 12
+	body, ok := strings.CutPrefix(fp, "SHA256:")
+	if !ok {
+		return fp
+	}
+
+	if len(body) <= n {
+		return fp
+	}
+
+	return "SHA256:" + body[:n]
+}
+
 func sshAgentHasFingerprint(agentOutput []byte, fingerprint string) bool {
 	scanner := bufio.NewScanner(bytes.NewReader(agentOutput))
 
