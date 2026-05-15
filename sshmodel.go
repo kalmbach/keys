@@ -458,11 +458,6 @@ func (s sshModel) renderList() string {
 	}
 
 	for i, k := range s.keys {
-		kind := "pub"
-		if k.HasPrivate {
-			kind = "sec"
-		}
-
 		marker := "  "
 		style := faintStyle
 
@@ -477,7 +472,7 @@ func (s sshModel) renderList() string {
 		}
 
 		name := strings.TrimSuffix(k.Filename, ".pub")
-		line := fmt.Sprintf("[%s]  %s  %s  %s  (%s)", kind, shortSSHFingerprint(k.Fingerprint), name, comment, k.Type)
+		line := fmt.Sprintf("%s  %s  %s  (%s)", shortSSHFingerprint(k.Fingerprint), name, comment, k.Type)
 		sb.WriteString(marker + style.Render(line) + "\n")
 	}
 
