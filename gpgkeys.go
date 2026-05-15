@@ -16,14 +16,23 @@ type UID struct {
 	Email   string
 }
 
-type Key struct {
+type SubKey struct {
 	KeyID       string
 	Fingerprint string
-	PrimaryUID  UID
+	Algo        string
+	Created     time.Time
 	Expires     time.Time
+	Caps        string
 	Secret      bool
 	Revoked     bool
 	Expired     bool
+}
+
+type Key struct {
+	Primary    SubKey
+	PrimaryUID UID
+	Validity   string
+	SubKeys    []SubKey
 }
 
 func LoadKeys() ([]Key, error) {
@@ -57,7 +66,7 @@ func loadSecretFingerprints() (map[string]bool, error) {
 		}
 
 		switch fields[0] {
-		case "sec":
+		case "sec", "ssb":
 			pending = true
 
 		case "fpr":
@@ -74,13 +83,17 @@ func loadSecretFingerprints() (map[string]bool, error) {
 func parseKeyList(out []byte, secret map[string]bool) []Key {
 	var keys []Key
 	var cur *Key
-	pendingFpr, pendingUID := false, false
+	var pendingSub *SubKey
+	pendingPrimaryFpr, pendingUID := false, false
 
 	flush := func() {
-		if cur != nil && cur.Fingerprint != "" {
+		if cur != nil && cur.Primary.Fingerprint != "" {
 			keys = append(keys, *cur)
 		}
 		cur = nil
+		pendingSub = nil
+		pendingPrimaryFpr = false
+		pendingUID = false
 	}
 
 	sc := bufio.NewScanner(bytes.NewReader(out))
@@ -93,36 +106,154 @@ func parseKeyList(out []byte, secret map[string]bool) []Key {
 		switch fields[0] {
 		case "pub":
 			flush()
-			if len(fields) < 7 {
+			if len(fields) < 12 {
 				continue
 			}
 
 			cur = &Key{
-				KeyID:   fields[4],
-				Expires: parseTimestamp(fields[6]),
-				Revoked: fields[1] == "r",
-				Expired: fields[1] == "e",
+				Primary: SubKey{
+					KeyID:   fields[4],
+					Created: parseTimestamp(fields[5]),
+					Expires: parseTimestamp(fields[6]),
+					Algo:    algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
+					Caps:    extractCaps(fields[11]),
+					Revoked: fields[1] == "r",
+					Expired: fields[1] == "e",
+				},
 			}
-			pendingFpr = true
+			pendingPrimaryFpr = true
 			pendingUID = true
 
+		case "sub":
+			if cur == nil || len(fields) < 12 {
+				continue
+			}
+
+			cur.SubKeys = append(cur.SubKeys, SubKey{
+				KeyID:   fields[4],
+				Created: parseTimestamp(fields[5]),
+				Expires: parseTimestamp(fields[6]),
+				Algo:    algoDisplay(atoi(fields[3]), atoi(fields[2]), colonField(fields, 16)),
+				Caps:    extractCaps(fields[11]),
+				Revoked: fields[1] == "r",
+				Expired: fields[1] == "e",
+			})
+			pendingSub = &cur.SubKeys[len(cur.SubKeys)-1]
+
 		case "fpr":
-			if cur != nil && pendingFpr && len(fields) >= 10 {
-				cur.Fingerprint = fields[9]
-				cur.Secret = secret[fields[9]]
-				pendingFpr = false
+			if cur == nil || len(fields) < 10 {
+				continue
+			}
+
+			fpr := fields[9]
+			if pendingPrimaryFpr {
+				cur.Primary.Fingerprint = fpr
+				cur.Primary.Secret = secret[fpr]
+				pendingPrimaryFpr = false
+
+			} else if pendingSub != nil {
+				pendingSub.Fingerprint = fpr
+				pendingSub.Secret = secret[fpr]
+				pendingSub = nil
 			}
 
 		case "uid":
-			if cur != nil && pendingUID && len(fields) >= 10 {
-				cur.PrimaryUID = parseUID(fields[9])
-				pendingUID = false
+			if cur == nil || !pendingUID || len(fields) < 10 {
+				continue
 			}
+
+			cur.PrimaryUID = parseUID(fields[9])
+			cur.Validity = validityName(fields[1])
+			pendingUID = false
 		}
 	}
 
 	flush()
 	return keys
+}
+
+func colonField(fields []string, idx int) string {
+	if idx >= len(fields) {
+		return ""
+	}
+	return fields[idx]
+}
+
+func atoi(s string) int {
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+func algoDisplay(algoNum, bits int, curve string) string {
+	if curve != "" {
+		return curve
+	}
+
+	switch algoNum {
+	case 1, 2, 3:
+		return fmt.Sprintf("rsa%d", bits)
+
+	case 16:
+		return fmt.Sprintf("elg%d", bits)
+
+	case 17:
+		return fmt.Sprintf("dsa%d", bits)
+
+	case 18:
+		return "ecdh"
+
+	case 19:
+		return "ecdsa"
+
+	case 22:
+		return "eddsa"
+
+	default:
+		return fmt.Sprintf("algo%d", algoNum)
+	}
+}
+
+func extractCaps(field string) string {
+	var b strings.Builder
+	for _, c := range field {
+		if c >= 'a' && c <= 'z' {
+			b.WriteRune(c - 'a' + 'A')
+		}
+	}
+	return b.String()
+}
+
+func validityName(letter string) string {
+	switch letter {
+	case "u":
+		return "ultimate"
+
+	case "f":
+		return "full"
+
+	case "m":
+		return "marginal"
+
+	case "n":
+		return "never"
+
+	case "r":
+		return "revoked"
+
+	case "e":
+		return "expired"
+
+	case "i":
+		return "invalid"
+
+	case "d":
+		return "disabled"
+
+	case "q", "o":
+		return "unknown"
+	}
+
+	return ""
 }
 
 func runGPG(args ...string) ([]byte, error) {
