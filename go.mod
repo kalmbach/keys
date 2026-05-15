@@ -5,7 +5,6 @@ go 1.26.1
 require (
 	charm.land/bubbletea/v2 v2.0.6
 	charm.land/lipgloss/v2 v2.0.3
-	github.com/proglottis/gpgme v0.1.6
 )
 
 require (
