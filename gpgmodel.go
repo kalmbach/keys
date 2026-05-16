@@ -18,6 +18,8 @@ const (
 
 type gpgExpireDoneMsg struct{ err error }
 
+type gpgPassphraseDoneMsg struct{ err error }
+
 type gpgKeysReloadedMsg struct {
 	keys []Key
 	err  error
@@ -97,6 +99,15 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 
 		return g, reloadGPGKeysCmd
 
+	case gpgPassphraseDoneMsg:
+		if msg.err != nil {
+			g.status = fmt.Sprintf("gpg error: %v", msg.err)
+		} else {
+			g.status = "passphrase changed"
+		}
+
+		return g, nil
+
 	case gpgKeysReloadedMsg:
 		g.keys = msg.keys
 		g.err = msg.err
@@ -150,6 +161,22 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 			g.mode = gpgModeExpire
 			g.input = ""
 			g.status = ""
+		}
+
+	case "p":
+		if g.err == nil && len(items) > 0 {
+			k, _, ok := g.currentSubKey()
+			if !ok {
+				return g, nil
+			}
+
+			if !k.Primary.Secret {
+				g.status = "can't change passphrase: no secret key"
+				return g, nil
+			}
+
+			g.status = ""
+			return g, passphraseCmd(k.Primary.Fingerprint)
 		}
 	}
 
@@ -336,6 +363,14 @@ func expiryLabel(t time.Time, expired, selected bool) string {
 	}
 
 	return label
+}
+
+func passphraseCmd(primaryFpr string) tea.Cmd {
+	c := exec.Command("gpg", "--passwd", primaryFpr)
+
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return gpgPassphraseDoneMsg{err: err}
+	})
 }
 
 func expireCmd(primaryFpr, when, subFpr string) tea.Cmd {
