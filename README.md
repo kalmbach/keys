@@ -1,43 +1,5 @@
 `keys` is a terminal UI for browsing local GPG and SSH keys and performing common key maintenance tasks.
 
-## Usage
-
-Run `keys` to open the TUI. `keys --version` prints the version and exits.
-
-Key bindings:
-
-Global
-
-| key       | action                            |
-|-----------|-----------------------------------|
-| `tab`     | switch between GPG and SSH views  |
-| `↑` / `k` | move up                           |
-| `↓` / `j` | move down                         |
-| `?`       | toggle help                       |
-| `q`, `esc`| quit                              |
-
-GPG keys
-
-| key       | action                            |
-|-----------|-----------------------------------|
-| `e`       | edit expiry                       |
-
-SSH keys
-
-| key       | action                            |
-|-----------|-----------------------------------|
-| `enter`   | show key details                  |
-| `y`       | yank public key to clipboard      |
-| `g`       | generate new key                  |
-| `c`       | change comment                    |
-| `p`       | change passphrase                 |
-| `d`       | delete key pair                   |
-
-GPG keys are loaded by shelling out to `gpg --with-colons` and parsing the
-output. SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub`
-files are skipped). Both `gpg` and `ssh-keygen` must be available on `PATH`
-at runtime — almost always already the case on Linux and macOS.
-
 ## Install
 
 One-liner:
@@ -58,6 +20,49 @@ go install github.com/kalmbach/keys@latest
 
 The binary lands in `$(go env GOPATH)/bin` — make sure that directory is on
 your `PATH`.
+
+## Usage
+
+Run `keys` to open the TUI. `keys --version` prints the version and exits.
+
+Key bindings:
+
+Global
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `tab`     | switch between GPG and SSH views  |
+| `↑` / `k` | move up                           |
+| `↓` / `j` | move down                         |
+| `?`       | toggle help                       |
+| `q`, `esc`| quit                              |
+
+GPG keys
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `enter`   | show key details                  |
+| `y`       | yank public key to clipboard      |
+| `g`       | generate new key                  |
+| `e`       | edit expiry                       |
+| `p`       | change passphrase                 |
+| `d`       | delete key pair (pub row only)    |
+
+SSH keys
+
+| key       | action                            |
+|-----------|-----------------------------------|
+| `enter`   | show key details                  |
+| `y`       | yank public key to clipboard      |
+| `g`       | generate new key                  |
+| `c`       | change comment                    |
+| `p`       | change passphrase                 |
+| `d`       | delete key pair                   |
+
+GPG keys are loaded by shelling out to `gpg --with-colons` and parsing the
+output. SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub`
+files are skipped). Both `gpg` and `ssh-keygen` must be available on `PATH`
+at runtime — almost always already the case on Linux and macOS.
 
 ## Version
 
