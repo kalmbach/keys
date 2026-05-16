@@ -14,6 +14,7 @@ type gpgMode int
 const (
 	gpgModeIdle gpgMode = iota
 	gpgModeExpire
+	gpgModeDetails
 )
 
 type gpgExpireDoneMsg struct{ err error }
@@ -84,8 +85,12 @@ func (g gpgModel) onPrimary() bool {
 func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if g.mode == gpgModeExpire {
+		switch g.mode {
+		case gpgModeExpire:
 			return g.updateExpire(msg)
+
+		case gpgModeDetails:
+			return g.updateDetails(msg)
 		}
 
 		return g.updateIdle(msg)
@@ -178,6 +183,21 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 			g.status = ""
 			return g, passphraseCmd(k.Primary.Fingerprint)
 		}
+
+	case "enter":
+		if g.err == nil && len(items) > 0 {
+			g.mode = gpgModeDetails
+			g.status = ""
+		}
+	}
+
+	return g, nil
+}
+
+func (g gpgModel) updateDetails(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "enter", "q":
+		g.mode = gpgModeIdle
 	}
 
 	return g, nil
@@ -231,6 +251,10 @@ func (g gpgModel) updateExpire(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 }
 
 func (g gpgModel) view() string {
+	if g.mode == gpgModeDetails {
+		return g.renderDetails()
+	}
+
 	var s strings.Builder
 	s.WriteString(g.renderList())
 
@@ -247,6 +271,162 @@ func (g gpgModel) view() string {
 	}
 
 	return s.String()
+}
+
+func (g gpgModel) renderDetails() string {
+	k, sk, ok := g.currentSubKey()
+	if !ok {
+		return ""
+	}
+
+	rows := [][2]string{
+		{"UID", formatUIDPlain(k)},
+		{"Validity", dashIfEmpty(k.Validity)},
+	}
+
+	if !g.onPrimary() {
+		rows = append(rows, [2]string{"Primary", k.Primary.KeyID})
+	}
+
+	rows = append(rows,
+		[2]string{"Fingerprint", formatFingerprint(sk.Fingerprint)},
+		[2]string{"Key ID", sk.KeyID},
+		[2]string{"Algorithm", sk.Algo},
+		[2]string{"Capabilities", expandCaps(sk.Caps)},
+		[2]string{"Created", formatDate(sk.Created)},
+		[2]string{"Expires", formatExpiresDetail(sk.Expires, sk.Expired)},
+		[2]string{"Secret", secretLocation(sk)},
+	)
+
+	if sk.CardSerial != "" {
+		rows = append(rows, [2]string{"Card serial", sk.CardSerial})
+	}
+
+	var flags []string
+	if sk.Revoked {
+		flags = append(flags, "revoked")
+	}
+
+	if sk.Invalid {
+		flags = append(flags, "invalid")
+	}
+
+	if sk.Disabled {
+		flags = append(flags, "disabled")
+	}
+
+	if len(flags) > 0 {
+		rows = append(rows, [2]string{"Status", strings.Join(flags, ", ")})
+	}
+
+	var sb strings.Builder
+	for _, r := range rows {
+		fmt.Fprintf(&sb, "%-14s %s\n", r[0]+":", r[1])
+	}
+
+	sb.WriteString("\n" + faintStyle.Render("esc/enter - back"))
+	return sb.String()
+}
+
+func formatUIDPlain(k Key) string {
+	uid := k.PrimaryUID.Name
+
+	if k.PrimaryUID.Comment != "" {
+		uid = fmt.Sprintf("%s (%s)", uid, k.PrimaryUID.Comment)
+	}
+
+	if k.PrimaryUID.Email != "" {
+		uid = fmt.Sprintf("%s <%s>", uid, k.PrimaryUID.Email)
+	}
+
+	return dashIfEmpty(uid)
+}
+
+func formatFingerprint(fpr string) string {
+	if len(fpr) != 40 {
+		return fpr
+	}
+
+	var sb strings.Builder
+	for i := 0; i < 40; i += 4 {
+		if i > 0 {
+			sb.WriteByte(' ')
+			if i == 20 {
+				sb.WriteByte(' ')
+			}
+		}
+
+		sb.WriteString(fpr[i : i+4])
+	}
+
+	return sb.String()
+}
+
+func expandCaps(caps string) string {
+	if caps == "" {
+		return "-"
+	}
+
+	names := map[byte]string{
+		'S': "sign",
+		'C': "certify",
+		'E': "encrypt",
+		'A': "authenticate",
+	}
+
+	var parts []string
+	for i := 0; i < len(caps); i++ {
+		if name, ok := names[caps[i]]; ok {
+			parts = append(parts, name)
+		}
+	}
+
+	if len(parts) == 0 {
+		return caps
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+func formatDate(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+
+	return t.Format("2006-01-02")
+}
+
+func formatExpiresDetail(t time.Time, expired bool) string {
+	if t.IsZero() {
+		return "never"
+	}
+
+	date := t.Format("2006-01-02")
+	if expired {
+		return fmt.Sprintf("%s (expired)", date)
+	}
+
+	return fmt.Sprintf("%s (%s)", date, relativeExpires(t, time.Now()))
+}
+
+func secretLocation(sk SubKey) string {
+	if !sk.Secret {
+		return "not available"
+	}
+
+	if sk.CardSerial != "" {
+		return "on card"
+	}
+
+	return "on disk"
+}
+
+func dashIfEmpty(s string) string {
+	if s == "" {
+		return "-"
+	}
+
+	return s
 }
 
 func (g gpgModel) renderList() string {

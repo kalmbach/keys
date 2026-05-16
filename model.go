@@ -139,6 +139,7 @@ func (m model) View() tea.View {
 		switch m.source {
 		case sourceGPG:
 			s.WriteString("\n" + faintStyle.Render("GPG keys") + "\n")
+			s.WriteString("enter - show details\n")
 			s.WriteString("e - edit expiry. " + faintStyle.Render("Runs gpg --quick-set-expire {fingerprint} {when}") + "\n")
 			s.WriteString("p - change passphrase. " + faintStyle.Render("Runs gpg --passwd {fingerprint}") + "\n")
 
