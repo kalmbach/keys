@@ -15,11 +15,24 @@ const (
 	gpgModeIdle gpgMode = iota
 	gpgModeExpire
 	gpgModeDetails
+	gpgModeGenerate
 )
+
+type gpgGenStep int
+
+const (
+	gpgGenStepUID gpgGenStep = iota
+	gpgGenStepAlgo
+	gpgGenStepExpiry
+)
+
+var gpgGenAlgoOptions = []string{"default", "rsa4096", "rsa3072"}
 
 type gpgExpireDoneMsg struct{ err error }
 
 type gpgPassphraseDoneMsg struct{ err error }
+
+type gpgGenerateDoneMsg struct{ err error }
 
 type gpgKeysReloadedMsg struct {
 	keys []Key
@@ -32,12 +45,15 @@ type gpgNavItem struct {
 }
 
 type gpgModel struct {
-	keys   []Key
-	cursor int
-	mode   gpgMode
-	input  string
-	status string
-	err    error
+	keys    []Key
+	cursor  int
+	mode    gpgMode
+	input   string
+	status  string
+	err     error
+	genStep gpgGenStep
+	genUID  string
+	genAlgo int
 }
 
 func (g gpgModel) idle() bool {
@@ -91,6 +107,9 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 
 		case gpgModeDetails:
 			return g.updateDetails(msg)
+
+		case gpgModeGenerate:
+			return g.updateGenerate(msg)
 		}
 
 		return g.updateIdle(msg)
@@ -112,6 +131,15 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 		}
 
 		return g, nil
+
+	case gpgGenerateDoneMsg:
+		if msg.err != nil {
+			g.status = fmt.Sprintf("gpg error: %v", msg.err)
+		} else {
+			g.status = "key generated"
+		}
+
+		return g, reloadGPGKeysCmd
 
 	case gpgKeysReloadedMsg:
 		g.keys = msg.keys
@@ -189,6 +217,16 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 			g.mode = gpgModeDetails
 			g.status = ""
 		}
+
+	case "g":
+		if g.err == nil {
+			g.mode = gpgModeGenerate
+			g.genStep = gpgGenStepUID
+			g.genUID = ""
+			g.genAlgo = 0
+			g.input = ""
+			g.status = ""
+		}
 	}
 
 	return g, nil
@@ -198,6 +236,130 @@ func (g gpgModel) updateDetails(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "enter", "q":
 		g.mode = gpgModeIdle
+	}
+
+	return g, nil
+}
+
+func (g gpgModel) updateGenerate(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	switch g.genStep {
+	case gpgGenStepUID:
+		return g.updateGenerateUID(msg)
+
+	case gpgGenStepAlgo:
+		return g.updateGenerateAlgo(msg)
+
+	case gpgGenStepExpiry:
+		return g.updateGenerateExpiry(msg)
+	}
+
+	return g, nil
+}
+
+func (g gpgModel) updateGenerateUID(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		g.mode = gpgModeIdle
+		g.input = ""
+		g.status = ""
+		return g, nil
+
+	case "enter":
+		val := strings.TrimSpace(g.input)
+		if val == "" {
+			g.status = "UID cannot be empty"
+			return g, nil
+		}
+
+		if lt := strings.Index(val, "<"); lt < 0 || !strings.Contains(val[lt:], ">") {
+			g.status = "UID must include <email>"
+			return g, nil
+		}
+
+		g.genUID = val
+		g.input = ""
+		g.status = ""
+		g.genStep = gpgGenStepAlgo
+		return g, nil
+
+	case "backspace":
+		if len(g.input) > 0 {
+			r := []rune(g.input)
+			g.input = string(r[:len(r)-1])
+		}
+
+		return g, nil
+	}
+
+	if msg.Text != "" {
+		g.input += msg.Text
+	}
+
+	return g, nil
+}
+
+func (g gpgModel) updateGenerateAlgo(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		g.mode = gpgModeIdle
+		g.status = ""
+		return g, nil
+
+	case "enter":
+		g.genStep = gpgGenStepExpiry
+		g.input = "2y"
+		g.status = ""
+		return g, nil
+
+	case "left", "h":
+		if g.genAlgo > 0 {
+			g.genAlgo--
+		}
+
+	case "right", "l":
+		if g.genAlgo < len(gpgGenAlgoOptions)-1 {
+			g.genAlgo++
+		}
+	}
+
+	return g, nil
+}
+
+func (g gpgModel) updateGenerateExpiry(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		g.mode = gpgModeIdle
+		g.input = ""
+		g.status = ""
+		return g, nil
+
+	case "enter":
+		val := strings.TrimSpace(g.input)
+		if val == "" {
+			val = "2y"
+		}
+
+		if strings.EqualFold(val, "never") {
+			val = "0"
+		}
+
+		uid := g.genUID
+		algo := gpgGenAlgoOptions[g.genAlgo]
+		g.mode = gpgModeIdle
+		g.input = ""
+		return g, generateGPGKeyCmd(uid, algo, val)
+
+	case "backspace":
+		if len(g.input) > 0 {
+			r := []rune(g.input)
+			g.input = string(r[:len(r)-1])
+		}
+
+		return g, nil
+	}
+
+	if msg.Text != "" {
+		g.input += msg.Text
 	}
 
 	return g, nil
@@ -258,7 +420,8 @@ func (g gpgModel) view() string {
 	var s strings.Builder
 	s.WriteString(g.renderList())
 
-	if g.mode == gpgModeExpire {
+	switch g.mode {
+	case gpgModeExpire:
 		_, sk, ok := g.currentSubKey()
 		if ok {
 			s.WriteString("\n")
@@ -266,11 +429,52 @@ func (g gpgModel) view() string {
 			s.WriteString(faintStyle.Render("1y, 2y, never, or YYYY-MM-DD — enter to confirm, esc to cancel"))
 		}
 
-	} else if g.status != "" {
-		s.WriteString("\n" + faintStyle.Render(g.status))
+	case gpgModeGenerate:
+		s.WriteString("\n" + g.renderGenerate())
+
+	default:
+		if g.status != "" {
+			s.WriteString("\n" + faintStyle.Render(g.status))
+		}
 	}
 
 	return s.String()
+}
+
+func (g gpgModel) renderGenerate() string {
+	var sb strings.Builder
+
+	switch g.genStep {
+	case gpgGenStepUID:
+		fmt.Fprintf(&sb, "UID: %s_\n", g.input)
+		sb.WriteString(faintStyle.Render(`e.g. "Real Name <email@example.com>" — enter to confirm, esc to cancel`))
+
+	case gpgGenStepAlgo:
+		sb.WriteString("Algorithm: ")
+		for i, opt := range gpgGenAlgoOptions {
+			if i > 0 {
+				sb.WriteString("  ")
+			}
+
+			if i == g.genAlgo {
+				sb.WriteString(currentKeyStyle.Render("[" + opt + "]"))
+			} else {
+				sb.WriteString(faintStyle.Render(" " + opt + " "))
+			}
+		}
+
+		sb.WriteString("\n" + faintStyle.Render("←/→ or h/l to choose — enter to confirm, esc to cancel"))
+
+	case gpgGenStepExpiry:
+		fmt.Fprintf(&sb, "Expiry: %s_\n", g.input)
+		sb.WriteString(faintStyle.Render("1y, 2y, never, or YYYY-MM-DD — enter to confirm, esc to cancel"))
+	}
+
+	if g.status != "" {
+		sb.WriteString("\n" + faintStyle.Render(g.status))
+	}
+
+	return sb.String()
 }
 
 func (g gpgModel) renderDetails() string {
@@ -543,6 +747,14 @@ func expiryLabel(t time.Time, expired, selected bool) string {
 	}
 
 	return label
+}
+
+func generateGPGKeyCmd(uid, algo, expiry string) tea.Cmd {
+	c := exec.Command("gpg", "--quick-generate-key", uid, algo, "default", expiry)
+
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return gpgGenerateDoneMsg{err: err}
+	})
 }
 
 func passphraseCmd(primaryFpr string) tea.Cmd {
