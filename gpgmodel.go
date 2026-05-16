@@ -40,6 +40,11 @@ type gpgDeleteDoneMsg struct {
 	err   error
 }
 
+type gpgYankDoneMsg struct {
+	keyID string
+	err   error
+}
+
 type gpgKeysReloadedMsg struct {
 	keys []Key
 	err  error
@@ -159,6 +164,15 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 
 		return g, reloadGPGKeysCmd
 
+	case gpgYankDoneMsg:
+		if msg.err != nil {
+			g.status = fmt.Sprintf("yank error: %v", msg.err)
+		} else {
+			g.status = fmt.Sprintf("copied %s", msg.keyID)
+		}
+
+		return g, nil
+
 	case gpgKeysReloadedMsg:
 		g.keys = msg.keys
 		g.err = msg.err
@@ -255,6 +269,17 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 
 			g.mode = gpgModeDeleteConfirm
 			g.status = ""
+		}
+
+	case "y":
+		if g.err == nil && len(items) > 0 {
+			k, _, ok := g.currentSubKey()
+			if !ok {
+				return g, nil
+			}
+
+			g.status = ""
+			return g, yankGPGCmd(k.Primary.Fingerprint, k.Primary.KeyID)
 		}
 	}
 
@@ -823,6 +848,24 @@ func (g gpgModel) renderDeleteConfirm() string {
 
 	sb.WriteString(faintStyle.Render("y to confirm, anything else to cancel"))
 	return sb.String()
+}
+
+func yankGPGCmd(fpr, keyID string) tea.Cmd {
+	return func() tea.Msg {
+		out, err := runGPG("--armor", "--export", fpr)
+		if err != nil {
+			return gpgYankDoneMsg{keyID: keyID, err: err}
+		}
+
+		tool, args := clipboardTool()
+		if tool == "" {
+			return gpgYankDoneMsg{keyID: keyID, err: fmt.Errorf("no clipboard tool found (install wl-clipboard, xclip, or xsel)")}
+		}
+
+		c := exec.Command(tool, args...)
+		c.Stdin = strings.NewReader(string(out))
+		return gpgYankDoneMsg{keyID: keyID, err: c.Run()}
+	}
 }
 
 func deleteGPGKeyCmd(fpr, keyID string, hasSecret bool) tea.Cmd {

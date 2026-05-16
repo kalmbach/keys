@@ -66,7 +66,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	switch msg.(type) {
-	case gpgExpireDoneMsg, gpgPassphraseDoneMsg, gpgGenerateDoneMsg, gpgDeleteDoneMsg, gpgKeysReloadedMsg:
+	case gpgExpireDoneMsg, gpgPassphraseDoneMsg, gpgGenerateDoneMsg, gpgDeleteDoneMsg, gpgYankDoneMsg, gpgKeysReloadedMsg:
 		m.gpg, cmd = m.gpg.update(msg)
 	case sshGenerateDoneMsg, sshChangeCommentDoneMsg, sshChangePassphraseDoneMsg, sshDeleteDoneMsg, sshDetailsMsg, sshKeysReloadedMsg, sshClipboardDoneMsg:
 		m.ssh, cmd = m.ssh.update(msg)
@@ -140,6 +140,7 @@ func (m model) View() tea.View {
 		case sourceGPG:
 			s.WriteString("\n" + faintStyle.Render("GPG keys") + "\n")
 			s.WriteString("enter - show details\n")
+			s.WriteString("y - yank public key. " + faintStyle.Render("Runs gpg --armor --export {fingerprint}") + "\n")
 			s.WriteString("g - generate new key. " + faintStyle.Render(`Runs gpg --quick-generate-key "{uid}" {algo} default {expiry}`) + "\n")
 			s.WriteString("e - edit expiry. " + faintStyle.Render("Runs gpg --quick-set-expire {fingerprint} {when}") + "\n")
 			s.WriteString("p - change passphrase. " + faintStyle.Render("Runs gpg --passwd {fingerprint}") + "\n")
