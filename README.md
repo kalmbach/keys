@@ -61,4 +61,4 @@ your `PATH`.
 
 ## Version
 
-Current Version 0.5.0
+Current Version 0.6.0
