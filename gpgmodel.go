@@ -16,6 +16,7 @@ const (
 	gpgModeExpire
 	gpgModeDetails
 	gpgModeGenerate
+	gpgModeDeleteConfirm
 )
 
 type gpgGenStep int
@@ -33,6 +34,11 @@ type gpgExpireDoneMsg struct{ err error }
 type gpgPassphraseDoneMsg struct{ err error }
 
 type gpgGenerateDoneMsg struct{ err error }
+
+type gpgDeleteDoneMsg struct {
+	keyID string
+	err   error
+}
 
 type gpgKeysReloadedMsg struct {
 	keys []Key
@@ -110,6 +116,9 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 
 		case gpgModeGenerate:
 			return g.updateGenerate(msg)
+
+		case gpgModeDeleteConfirm:
+			return g.updateDeleteConfirm(msg)
 		}
 
 		return g.updateIdle(msg)
@@ -137,6 +146,15 @@ func (g gpgModel) update(msg tea.Msg) (gpgModel, tea.Cmd) {
 			g.status = fmt.Sprintf("gpg error: %v", msg.err)
 		} else {
 			g.status = "key generated"
+		}
+
+		return g, reloadGPGKeysCmd
+
+	case gpgDeleteDoneMsg:
+		if msg.err != nil {
+			g.status = fmt.Sprintf("gpg error: %v", msg.err)
+		} else {
+			g.status = fmt.Sprintf("deleted %s", msg.keyID)
 		}
 
 		return g, reloadGPGKeysCmd
@@ -227,6 +245,17 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 			g.input = ""
 			g.status = ""
 		}
+
+	case "d":
+		if g.err == nil && len(items) > 0 {
+			if !g.onPrimary() {
+				g.status = "delete: select pub row (subkey delete not supported)"
+				return g, nil
+			}
+
+			g.mode = gpgModeDeleteConfirm
+			g.status = ""
+		}
 	}
 
 	return g, nil
@@ -238,6 +267,22 @@ func (g gpgModel) updateDetails(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 		g.mode = gpgModeIdle
 	}
 
+	return g, nil
+}
+
+func (g gpgModel) updateDeleteConfirm(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
+	k, _, ok := g.currentSubKey()
+	if !ok {
+		g.mode = gpgModeIdle
+		return g, nil
+	}
+
+	if s := msg.String(); s == "y" || s == "Y" {
+		g.mode = gpgModeIdle
+		return g, deleteGPGKeyCmd(k.Primary.Fingerprint, k.Primary.KeyID, k.Primary.Secret)
+	}
+
+	g.mode = gpgModeIdle
 	return g, nil
 }
 
@@ -431,6 +476,9 @@ func (g gpgModel) view() string {
 
 	case gpgModeGenerate:
 		s.WriteString("\n" + g.renderGenerate())
+
+	case gpgModeDeleteConfirm:
+		s.WriteString("\n" + g.renderDeleteConfirm())
 
 	default:
 		if g.status != "" {
@@ -747,6 +795,50 @@ func expiryLabel(t time.Time, expired, selected bool) string {
 	}
 
 	return label
+}
+
+func (g gpgModel) renderDeleteConfirm() string {
+	k, _, ok := g.currentSubKey()
+	if !ok {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Delete this key?\n")
+	fmt.Fprintf(&sb, "  UID:         %s\n", formatUIDPlain(k))
+	fmt.Fprintf(&sb, "  Key ID:      %s\n", k.Primary.KeyID)
+	fmt.Fprintf(&sb, "  Fingerprint: %s\n", formatFingerprint(k.Primary.Fingerprint))
+
+	var parts []string
+	if k.Primary.Secret {
+		if k.Primary.CardSerial != "" {
+			parts = append(parts, "secret stub (card untouched)")
+		} else {
+			parts = append(parts, "secret key")
+		}
+	}
+
+	parts = append(parts, "public key")
+	fmt.Fprintf(&sb, "  Removes:     %s — local keyring only, no recovery without backup\n", strings.Join(parts, " + "))
+
+	sb.WriteString(faintStyle.Render("y to confirm, anything else to cancel"))
+	return sb.String()
+}
+
+func deleteGPGKeyCmd(fpr, keyID string, hasSecret bool) tea.Cmd {
+	return func() tea.Msg {
+		if hasSecret {
+			if _, err := runGPG("--batch", "--yes", "--delete-secret-keys", fpr); err != nil {
+				return gpgDeleteDoneMsg{keyID: keyID, err: err}
+			}
+		}
+
+		if _, err := runGPG("--batch", "--yes", "--delete-keys", fpr); err != nil {
+			return gpgDeleteDoneMsg{keyID: keyID, err: err}
+		}
+
+		return gpgDeleteDoneMsg{keyID: keyID}
+	}
 }
 
 func generateGPGKeyCmd(uid, algo, expiry string) tea.Cmd {

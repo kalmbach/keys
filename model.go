@@ -66,7 +66,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	switch msg.(type) {
-	case gpgExpireDoneMsg, gpgPassphraseDoneMsg, gpgGenerateDoneMsg, gpgKeysReloadedMsg:
+	case gpgExpireDoneMsg, gpgPassphraseDoneMsg, gpgGenerateDoneMsg, gpgDeleteDoneMsg, gpgKeysReloadedMsg:
 		m.gpg, cmd = m.gpg.update(msg)
 	case sshGenerateDoneMsg, sshChangeCommentDoneMsg, sshChangePassphraseDoneMsg, sshDeleteDoneMsg, sshDetailsMsg, sshKeysReloadedMsg, sshClipboardDoneMsg:
 		m.ssh, cmd = m.ssh.update(msg)
@@ -143,6 +143,7 @@ func (m model) View() tea.View {
 			s.WriteString("g - generate new key. " + faintStyle.Render(`Runs gpg --quick-generate-key "{uid}" {algo} default {expiry}`) + "\n")
 			s.WriteString("e - edit expiry. " + faintStyle.Render("Runs gpg --quick-set-expire {fingerprint} {when}") + "\n")
 			s.WriteString("p - change passphrase. " + faintStyle.Render("Runs gpg --passwd {fingerprint}") + "\n")
+			s.WriteString("d - delete key pair (pub row only). " + faintStyle.Render("Runs gpg --batch --yes --delete-secret-keys then --delete-keys") + "\n")
 
 		case sourceSSH:
 			s.WriteString("\n" + faintStyle.Render("SSH keys") + "\n")
