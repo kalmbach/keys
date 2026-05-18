@@ -88,15 +88,15 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "tab":
+			m.gpg.status = ""
+			m.ssh.status = ""
+
 			if m.source == sourceGPG {
 				m.source = sourceSSH
 				m.ssh.cursor = 0
-				m.ssh.status = ""
-
 			} else {
 				m.source = sourceGPG
 				m.gpg.cursor = 0
-				m.gpg.status = ""
 			}
 			return m, nil
 

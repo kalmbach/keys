@@ -179,6 +179,7 @@ func (s sshModel) updateIdle(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 	case "y":
 		if s.err == nil && len(s.keys) > 0 {
 			k := s.keys[s.cursor]
+			s.status = ""
 			return s, yankCmd(k.Path, k.Filename)
 		}
 
