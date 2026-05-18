@@ -62,6 +62,10 @@ func loadSecretInfo() (map[string]secretInfo, error) {
 		return nil, err
 	}
 
+	return parseSecretInfo(out), nil
+}
+
+func parseSecretInfo(out []byte) map[string]secretInfo {
 	set := map[string]secretInfo{}
 	sc := bufio.NewScanner(bytes.NewReader(out))
 	var pending *secretInfo
@@ -88,7 +92,7 @@ func loadSecretInfo() (map[string]secretInfo, error) {
 		}
 	}
 
-	return set, sc.Err()
+	return set
 }
 
 func parseKeyList(out []byte, secret map[string]secretInfo) []Key {
