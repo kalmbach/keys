@@ -66,4 +66,4 @@ at runtime — almost always already the case on Linux and macOS.
 
 ## Version
 
-Current Version 0.6.0
+Current Version 0.6.1
