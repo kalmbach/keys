@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-const version = "0.6.1"
+const version = "0.6.2"
 
 func main() {
 	var showVersion bool
