@@ -46,7 +46,7 @@ GPG keys
 | `g`       | generate new key                  |
 | `e`       | edit expiry                       |
 | `p`       | change passphrase                 |
-| `d`       | delete key pair (pub row only)    |
+| `d`       | delete key pair (pub row only, type the Key ID to confirm) |
 
 SSH keys
 
@@ -57,7 +57,7 @@ SSH keys
 | `g`       | generate new key                  |
 | `c`       | change comment                    |
 | `p`       | change passphrase                 |
-| `d`       | delete key pair                   |
+| `d`       | delete key pair (type the filename to confirm) |
 
 GPG keys are loaded by shelling out to `gpg --with-colons` and parsing the
 output. SSH keys are read from `~/.ssh/*.pub` (certificates and non-`.pub`

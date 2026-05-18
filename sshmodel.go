@@ -195,6 +195,7 @@ func (s sshModel) updateIdle(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 	case "d":
 		if s.err == nil && len(s.keys) > 0 {
 			s.mode = sshModeDeleteConfirm
+			s.input = ""
 			s.status = ""
 		}
 
@@ -240,19 +241,45 @@ func (s sshModel) updateDetails(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 func (s sshModel) updateDeleteConfirm(msg tea.KeyPressMsg) (sshModel, tea.Cmd) {
 	if len(s.keys) == 0 {
 		s.mode = sshModeIdle
+		s.input = ""
 		return s, nil
 	}
 
-	if k := msg.String(); k == "y" || k == "Y" {
-		key := s.keys[s.cursor]
-		priv := strings.TrimSuffix(key.Path, ".pub")
-		name := strings.TrimSuffix(key.Filename, ".pub")
-		s.mode = sshModeIdle
+	key := s.keys[s.cursor]
+	name := strings.TrimSuffix(key.Filename, ".pub")
 
+	switch msg.String() {
+	case "esc":
+		s.mode = sshModeIdle
+		s.input = ""
+		s.status = ""
+		return s, nil
+
+	case "enter":
+		typed := strings.TrimSpace(s.input)
+		s.mode = sshModeIdle
+		s.input = ""
+
+		if typed != name {
+			s.status = "filename didn't match — delete cancelled"
+			return s, nil
+		}
+
+		priv := strings.TrimSuffix(key.Path, ".pub")
 		return s, deleteSSHKeyCmd(priv, key.Path, name)
+
+	case "backspace":
+		if len(s.input) > 0 {
+			r := []rune(s.input)
+			s.input = string(r[:len(r)-1])
+		}
+		return s, nil
 	}
 
-	s.mode = sshModeIdle
+	if msg.Text != "" {
+		s.input += msg.Text
+	}
+
 	return s, nil
 }
 
@@ -369,8 +396,9 @@ func (s sshModel) view() string {
 		k := s.keys[s.cursor]
 		name := strings.TrimSuffix(k.Filename, ".pub")
 		sb.WriteString("\n")
-		fmt.Fprintf(&sb, "Delete %s and %s? ", name, k.Filename)
-		sb.WriteString(faintStyle.Render("y to confirm, anything else to cancel"))
+		fmt.Fprintf(&sb, "Delete %s and %s?\n", name, k.Filename)
+		fmt.Fprintf(&sb, "Type the filename (%s) to confirm: %s_\n", name, s.input)
+		sb.WriteString(faintStyle.Render("enter to confirm, esc to cancel"))
 
 	} else if s.status != "" {
 		sb.WriteString("\n" + faintStyle.Render(s.status))

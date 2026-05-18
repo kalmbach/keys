@@ -268,6 +268,7 @@ func (g gpgModel) updateIdle(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 			}
 
 			g.mode = gpgModeDeleteConfirm
+			g.input = ""
 			g.status = ""
 		}
 
@@ -299,15 +300,41 @@ func (g gpgModel) updateDeleteConfirm(msg tea.KeyPressMsg) (gpgModel, tea.Cmd) {
 	k, _, ok := g.currentSubKey()
 	if !ok {
 		g.mode = gpgModeIdle
+		g.input = ""
 		return g, nil
 	}
 
-	if s := msg.String(); s == "y" || s == "Y" {
+	switch msg.String() {
+	case "esc":
 		g.mode = gpgModeIdle
+		g.input = ""
+		g.status = ""
+		return g, nil
+
+	case "enter":
+		typed := strings.TrimSpace(g.input)
+		g.mode = gpgModeIdle
+		g.input = ""
+
+		if !strings.EqualFold(typed, k.Primary.KeyID) {
+			g.status = "key ID didn't match — delete cancelled"
+			return g, nil
+		}
+
 		return g, deleteGPGKeyCmd(k.Primary.Fingerprint, k.Primary.KeyID, k.Primary.Secret)
+
+	case "backspace":
+		if len(g.input) > 0 {
+			r := []rune(g.input)
+			g.input = string(r[:len(r)-1])
+		}
+		return g, nil
 	}
 
-	g.mode = gpgModeIdle
+	if msg.Text != "" {
+		g.input += msg.Text
+	}
+
 	return g, nil
 }
 
@@ -846,7 +873,8 @@ func (g gpgModel) renderDeleteConfirm() string {
 	parts = append(parts, "public key")
 	fmt.Fprintf(&sb, "  Removes:     %s — local keyring only, no recovery without backup\n", strings.Join(parts, " + "))
 
-	sb.WriteString(faintStyle.Render("y to confirm, anything else to cancel"))
+	fmt.Fprintf(&sb, "\nType the Key ID (%s) to confirm: %s_\n", k.Primary.KeyID, g.input)
+	sb.WriteString(faintStyle.Render("enter to confirm, esc to cancel"))
 	return sb.String()
 }
 
