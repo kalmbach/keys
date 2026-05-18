@@ -887,7 +887,7 @@ func yankGPGCmd(fpr, keyID string) tea.Cmd {
 
 		tool, args := clipboardTool()
 		if tool == "" {
-			return gpgYankDoneMsg{keyID: keyID, err: fmt.Errorf("no clipboard tool found (install wl-clipboard, xclip, or xsel)")}
+			return gpgYankDoneMsg{keyID: keyID, err: fmt.Errorf("no clipboard tool found (need pbcopy, wl-copy, xclip, or xsel on PATH)")}
 		}
 
 		c := exec.Command(tool, args...)

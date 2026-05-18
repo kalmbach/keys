@@ -636,7 +636,7 @@ func yankCmd(path, filename string) tea.Cmd {
 
 		tool, args := clipboardTool()
 		if tool == "" {
-			return sshClipboardDoneMsg{filename: filename, err: errors.New("no clipboard tool found (install wl-clipboard, xclip, or xsel)")}
+			return sshClipboardDoneMsg{filename: filename, err: errors.New("no clipboard tool found (need pbcopy, wl-copy, xclip, or xsel on PATH)")}
 		}
 
 		c := exec.Command(tool, args...)
@@ -651,6 +651,10 @@ func clipboardTool() (string, []string) {
 		if _, err := exec.LookPath("wl-copy"); err == nil {
 			return "wl-copy", nil
 		}
+	}
+
+	if _, err := exec.LookPath("pbcopy"); err == nil {
+		return "pbcopy", nil
 	}
 
 	if _, err := exec.LookPath("xclip"); err == nil {
